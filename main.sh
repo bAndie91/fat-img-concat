@@ -46,3 +46,5 @@ cat unmerged.table | ./merge_adjacent_ranges > merged.table
 # generate mapping which concatfs consumes
 [ ! -d concatfs.d ] && mkdir concatfs.d
 cat merged.table | ./gen_concat_list > concatfs.d/"$image_file"
+
+# continue with mount by concatfs from <https://github.com/bAndie91/concatfs.git>
