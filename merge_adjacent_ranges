@@ -1,0 +1,34 @@
+#!/bin/bash
+
+prev_image_offset=0
+prev_imagechunk_size=0
+prev_backend_file=-
+prev_backend_offset=-1
+
+output_mapping_line()
+{
+	echo "$prev_image_offset $prev_imagechunk_size linear $prev_backend_file $prev_backend_offset"
+}
+
+while read -r image_offset imagechunk_size x backend_file backend_offset
+do
+	if [ "$prev_backend_file" = "$backend_file" \
+		-a $[prev_image_offset + prev_imagechunk_size] = $image_offset \
+		-a \( $[prev_backend_offset + prev_imagechunk_size] = $backend_offset \
+			-o "$backend_file" = /dev/zero \) ]
+	then
+		prev_imagechunk_size=$[prev_imagechunk_size + imagechunk_size]
+	else
+		if [ $prev_backend_file != - ]
+		then
+			output_mapping_line
+		fi
+		
+		prev_image_offset=$image_offset
+		prev_imagechunk_size=$imagechunk_size
+		prev_backend_file=$backend_file
+		prev_backend_offset=$backend_offset
+	fi
+done
+
+output_mapping_line

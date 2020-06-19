@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# i got worst dedup results with 1024 bytes or bigger blocks
+block_size=512
+
+offset=''
+image_offsets=()
+
+while read -r duptype id depth size device inode priority name
+do
+	if [ $duptype = DUPTYPE_FIRST_OCCURRENCE ]
+	then
+		image_offsets=()
+	fi
+	
+	if [[ $name =~ _0*([0-9]+)$ ]]
+	then
+		block_num=${BASH_REMATCH[1]}
+		offset=$[block_num * block_size]
+	fi
+	
+	if [[ $name =~ ^blocks/image/ ]]
+	then
+		image_offsets+=($offset)
+		
+		if grep -qx "$name" zero-chunks.txt
+		then
+			for off in "${image_offsets[@]}"
+			do
+				echo $off $block_size linear /dev/zero 0
+			done
+			image_offsets=()
+		fi
+	fi
+	
+	if [[ $name =~ ^blocks/originals/(.+?)_[0-9]+$ ]]
+	then
+		backend_file=${BASH_REMATCH[1]}
+		backend_offset=$offset
+		
+		for off in "${image_offsets[@]}"
+		do
+			echo $off $block_size linear $backend_file $backend_offset
+		done
+		
+		image_offsets=()
+	fi
+done

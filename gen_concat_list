@@ -1,0 +1,42 @@
+#!/bin/bash
+
+image_file=fat.img
+
+set -e
+set -o pipefail
+set -u
+
+current_offset=0
+total_size=`stat -c %s "$image_file"`
+
+
+fill_the_gap()
+{
+	# save the portion of the image file which is not covered by the mapping table (unique FAT metadata)
+	
+	if [ $gap_size -gt 0 ]
+	then
+		partfile=parts/$current_offset-$[current_offset + gap_size]
+		
+		[ ! -d parts ] && mkdir parts
+		dd if="$image_file" of="$partfile" skip=$current_offset bs=1 count=$gap_size
+		
+		echo "0 $gap_size ../$partfile"
+	fi
+}
+
+while read -r image_offset chunk_length x backend_file backend_offset
+do
+	gap_size=$[image_offset - current_offset]
+	fill_the_gap
+	current_offset=$[current_offset + gap_size]
+	
+	pathprefix=''
+	if [ "${backend_file:0:1}" != / ]; then pathprefix=../; fi
+	
+	echo "$backend_offset $chunk_length $pathprefix$backend_file"
+	current_offset=$[current_offset + chunk_length]
+done
+
+gap_size=$[total_size - current_offset]
+fill_the_gap
